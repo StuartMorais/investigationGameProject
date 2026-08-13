@@ -1,0 +1,340 @@
+/*
+    styles.tcss controls how the Textual interface LOOKS.
+    Python controls behavior; TCSS controls layout, spacing, colors, and borders.
+*/
+
+/* Default colors for every screen. */
+Screen {
+    background: #0d1117;
+    color: #d8dee9;
+}
+
+
+/* ===============================================================
+   MAIN MENU
+   =============================================================== */
+
+/* Center the menu container horizontally on the screen. */
+MainMenuScreen {
+    align: center top;
+    overflow-y: auto;
+}
+
+/* The main box holding all menu content. */
+#menu-shell {
+    width: 64;
+    max-width: 90%;
+    height: auto;
+    margin: 2 0;
+    padding: 2 4;
+    border: round #30363d;
+}
+
+/* Main game title. */
+#menu-title {
+    width: 100%;
+    height: auto;
+    text-align: center;
+    text-style: bold;
+    color: #f0f6fc;
+    margin-bottom: 1;
+}
+
+/* Subtitle below the title. */
+#menu-subtitle {
+    width: 100%;
+    height: auto;
+    text-align: center;
+    color: #8b949e;
+    margin-bottom: 2;
+}
+
+/* Short atmospheric intro. */
+#menu-intro {
+    width: 100%;
+    height: auto;
+    text-align: center;
+    color: #c9d1d9;
+    margin-bottom: 2;
+}
+
+/* Make menu buttons fill the menu box. */
+#menu-shell Button {
+    width: 100%;
+    margin-bottom: 1;
+}
+
+/* HOW TO PLAY text begins hidden. */
+#menu-help {
+    display: none;
+    width: 100%;
+    height: auto;
+    margin-top: 1;
+    padding: 1 2;
+    border: round #30363d;
+    color: #8b949e;
+    text-wrap: wrap;
+}
+
+/* main_menu.py adds this class when the terminal becomes narrow. */
+.compact-menu #menu-shell {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 1;
+    border: none;
+}
+
+.compact-menu #menu-title {
+    margin-bottom: 0;
+}
+
+.compact-menu #menu-subtitle {
+    margin-bottom: 1;
+}
+
+.compact-menu #menu-intro {
+    margin-bottom: 1;
+}
+
+
+/* ===============================================================
+   GAMEPLAY SCENES
+   =============================================================== */
+
+/*
+The main menu has its own layout above.
+
+Normal gameplay scenes use this standard structure:
+
+    #scene-body
+        #story-column
+        #side-column
+
+This means future scenes can keep the notebook/sidebar in the same place.
+*/
+
+
+/* The scene itself should not create a second outside scrollbar. */
+OfficeSceneScreen {
+    overflow-y: hidden;
+}
+
+
+/*
+The entire gameplay layout lives inside one VerticalScroll.
+
+If the terminal is short, the player can still scroll down to reach
+everything.
+*/
+#scene-scroll {
+    width: 100%;
+    height: 1fr;
+    padding: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-size-vertical: 1;
+}
+
+
+/*
+Wide-terminal layout.
+
+Horizontal means story and sidebar sit beside each other.
+*/
+#scene-body {
+    width: 100%;
+    height: auto;
+    layout: horizontal;
+}
+
+
+/* ---------------------------------------------------------------
+   LEFT SIDE: STORY / ROOM
+   --------------------------------------------------------------- */
+
+#story-column {
+    /*
+    2fr gives the story roughly twice as much horizontal space
+    as the 1fr notebook sidebar.
+    */
+    width: 2fr;
+
+    /*
+    min-width: 0 lets Textual shrink this column correctly when
+    available space becomes limited.
+    */
+    min-width: 0;
+
+    height: auto;
+
+    border: round #30363d;
+    padding: 1 2;
+
+    /* One terminal cell of space before the notebook. */
+    margin-right: 1;
+}
+
+
+/* ---------------------------------------------------------------
+   RIGHT SIDE: NOTEBOOK / SIDEBAR
+   --------------------------------------------------------------- */
+
+#side-column {
+    width: 1fr;
+
+    /*
+    Keep the notebook readable in wide mode.
+    Compact mode removes this minimum.
+    */
+    min-width: 30;
+
+    height: auto;
+
+    border: round #30363d;
+    padding: 1;
+}
+
+
+/*
+Every Static widget wraps text instead of allowing long lines to vanish
+off the right side of the terminal.
+*/
+Static {
+    text-wrap: wrap;
+}
+
+
+/* Scene/location title. */
+#scene-title {
+    width: 100%;
+    height: auto;
+    color: #f0f6fc;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+
+/* Main room prose. */
+#scene-text {
+    width: 100%;
+    height: auto;
+    color: #d8dee9;
+    margin-bottom: 1;
+
+    /*
+    Future hidden clickable words should look exactly like normal prose.
+    */
+    link-color: #d8dee9;
+    link-background: transparent;
+    link-style: none;
+
+    /*
+    Hovering a hidden clue should not expose it.
+    */
+    link-color-hover: #d8dee9;
+    link-background-hover: transparent;
+    link-style-hover: none;
+}
+
+
+/* Examination/result box. */
+#detail {
+    width: 100%;
+    height: auto;
+    min-height: 5;
+
+    border: round #21262d;
+    padding: 1;
+    margin-top: 1;
+
+    color: #c9d1d9;
+}
+
+
+/* Leave-room button. */
+#leave-office {
+    width: 100%;
+    margin-top: 1;
+}
+
+
+/* ---------------------------------------------------------------
+   SIDEBAR CONTENT
+   --------------------------------------------------------------- */
+
+/* Blue heading used by the notebook. */
+.section-title {
+    width: 100%;
+    height: auto;
+    color: #79c0ff;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+
+/* "Clues: 0" line. */
+#clue-count {
+    width: 100%;
+    height: auto;
+    color: #8b949e;
+    margin-bottom: 1;
+}
+
+
+/* Notebook body. */
+#notebook {
+    width: 100%;
+    height: auto;
+    min-height: 10;
+
+    border: round #21262d;
+    padding: 1;
+}
+
+
+/* ===============================================================
+   SMALL GAMEPLAY TERMINALS
+   =============================================================== */
+
+/*
+office_scene.py adds the "compact-scene" class when width < 90.
+
+The sidebar is NEVER deleted.
+
+It simply moves UNDER the story so the text remains readable.
+*/
+OfficeSceneScreen.compact-scene #scene-body {
+    layout: vertical;
+}
+
+
+/* Story becomes full-width. */
+OfficeSceneScreen.compact-scene #story-column {
+    width: 100%;
+    min-width: 0;
+
+    margin-right: 0;
+    margin-bottom: 1;
+
+    padding: 1;
+}
+
+
+/* Notebook becomes full-width underneath the story. */
+OfficeSceneScreen.compact-scene #side-column {
+    width: 100%;
+    min-width: 0;
+
+    padding: 1;
+}
+
+
+/*
+Do not force tall boxes on a small screen.
+Let their content determine their height.
+*/
+OfficeSceneScreen.compact-scene #detail,
+OfficeSceneScreen.compact-scene #notebook {
+    min-height: 0;
+}

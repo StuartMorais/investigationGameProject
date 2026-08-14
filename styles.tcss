@@ -111,7 +111,7 @@ Normal gameplay scenes use this standard structure:
         #story-column
         #side-column
 
-This means future scenes can keep the notebook/sidebar in the same place.
+This means future scenes keep the notebook + deduction sidebar in the same place.
 */
 
 
@@ -177,14 +177,14 @@ Horizontal means story and sidebar sit beside each other.
 
 
 /* ---------------------------------------------------------------
-   RIGHT SIDE: NOTEBOOK / SIDEBAR
+   RIGHT SIDE: NOTEBOOK + DEDUCTIONS
    --------------------------------------------------------------- */
 
 #side-column {
     width: 1fr;
 
     /*
-    Keep the notebook readable in wide mode.
+    Keep the permanent sidebar readable in wide mode.
     Compact mode removes this minimum.
     */
     min-width: 30;
@@ -243,8 +243,8 @@ Static {
 }
 
 
-/* Leave-room button. */
-#leave-office {
+/* Normal scene navigation buttons such as RETURN TO MENU / BACK. */
+.scene-navigation {
     width: 100%;
     margin-top: 1;
 }
@@ -277,10 +277,46 @@ Static {
 #notebook {
     width: 100%;
     height: auto;
-    min-height: 10;
+    min-height: 7;
 
     border: round #21262d;
     padding: 1;
+}
+
+
+/* Space between notebook and the permanent deduction menu. */
+.deduction-section-title {
+    margin-top: 2;
+}
+
+
+/* Recorded deductions. */
+#deduction-list {
+    width: 100%;
+    height: auto;
+    min-height: 5;
+
+    border: round #21262d;
+    padding: 1;
+
+    /*
+    Only the word CONCLUDE is an intentional visible action link.
+    The conclusion sentence itself remains ordinary readable text.
+    */
+    link-color: #79c0ff;
+    link-background: transparent;
+    link-style: bold;
+
+    link-color-hover: #f0f6fc;
+    link-background-hover: #21262d;
+    link-style-hover: bold;
+}
+
+
+/* Always-present deduction navigation button. */
+#follow-deduction {
+    width: 100%;
+    margin-top: 1;
 }
 
 
@@ -326,6 +362,7 @@ Do not force tall boxes on a small screen.
 Let their content determine their height.
 */
 .compact-scene #detail,
-.compact-scene #notebook {
+.compact-scene #notebook,
+.compact-scene #deduction-list {
     min-height: 0;
 }

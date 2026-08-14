@@ -25,7 +25,7 @@ class MainMenuScreen(Screen):
         with Vertical(id="menu-shell"):
             # Main title.
             yield Static(
-                "THE INVESTIGATION GAME",
+                "UNTITLED INVESTIGATION",
                 id="menu-title",
             )
 
@@ -104,8 +104,14 @@ class MainMenuScreen(Screen):
         button_id = event.button.id
 
         if button_id == "start-game":
+            # A new game starts with a completely fresh notebook/deduction
+            # state.
+            self.app.reset_investigation()
+
             # Put OfficeSceneScreen on top of the main menu.
-            self.app.push_screen(OfficeSceneScreen())
+            self.app.push_screen(
+                OfficeSceneScreen()
+            )
             return
 
         if button_id == "how-to-play":

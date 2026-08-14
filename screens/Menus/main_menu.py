@@ -67,10 +67,13 @@ class MainMenuScreen(Screen):
             yield Static(
                 "HOW TO PLAY\n\n"
                 "Read the prose carefully.\n"
-                "Some ordinary words may be examined with the mouse, "
-                "but they do not have to look like buttons.\n\n"
-                "Highlighted or distorted words are different: "
-                "the narrative itself is drawing attention to them.\n\n"
+                "Some ordinary words can be interacted with, but they "
+                "look exactly like the surrounding text.\n\n"
+                "Press and HOLD the left mouse button on something that "
+                "catches your attention.\n"
+                "After 1 second the word itself begins to wobble.\n"
+                "Keep holding until 1.5 seconds to activate it.\n\n"
+                "Releasing early cancels the interaction.\n"
                 "There are no glowing clue markers.",
                 id="menu-help",
             )

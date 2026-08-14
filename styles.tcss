@@ -116,7 +116,7 @@ This means future scenes can keep the notebook/sidebar in the same place.
 
 
 /* The scene itself should not create a second outside scrollbar. */
-OfficeSceneScreen {
+.gameplay-scene {
     overflow-y: hidden;
 }
 
@@ -223,18 +223,9 @@ Static {
     margin-bottom: 1;
 
     /*
-    Future hidden clickable words should look exactly like normal prose.
+    Hidden hold interactions now use invisible Rich metadata instead of
+    Textual @click links, so there is no visual link styling to reveal.
     */
-    link-color: #d8dee9;
-    link-background: transparent;
-    link-style: none;
-
-    /*
-    Hovering a hidden clue should not expose it.
-    */
-    link-color-hover: #d8dee9;
-    link-background-hover: transparent;
-    link-style-hover: none;
 }
 
 
@@ -304,13 +295,13 @@ The sidebar is NEVER deleted.
 
 It simply moves UNDER the story so the text remains readable.
 */
-OfficeSceneScreen.compact-scene #scene-body {
+.compact-scene #scene-body {
     layout: vertical;
 }
 
 
 /* Story becomes full-width. */
-OfficeSceneScreen.compact-scene #story-column {
+.compact-scene #story-column {
     width: 100%;
     min-width: 0;
 
@@ -322,7 +313,7 @@ OfficeSceneScreen.compact-scene #story-column {
 
 
 /* Notebook becomes full-width underneath the story. */
-OfficeSceneScreen.compact-scene #side-column {
+.compact-scene #side-column {
     width: 100%;
     min-width: 0;
 
@@ -334,7 +325,7 @@ OfficeSceneScreen.compact-scene #side-column {
 Do not force tall boxes on a small screen.
 Let their content determine their height.
 */
-OfficeSceneScreen.compact-scene #detail,
-OfficeSceneScreen.compact-scene #notebook {
+.compact-scene #detail,
+.compact-scene #notebook {
     min-height: 0;
 }

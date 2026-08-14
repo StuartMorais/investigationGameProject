@@ -1,19 +1,14 @@
 # This file stores clue DATA for the Office scene.
 #
 # office_scene.py controls HOW the room works.
-# clue_data.py stores WHAT the clues say.
+# clue_data.py stores WHAT actual evidence says.
 
 
-# Full examination text.
-#
-# OfficeSceneScreen.inspect() displays this when the player clicks
-# a hidden interactive word in the prose.
+# Full examination text for REAL clues.
 CLUE_DESCRIPTIONS = {
-    # The key "windows" must match:
+    # "windows" matches the interaction ID used in:
     #
-    #     screen.inspect('windows')
-    #
-    # inside office_scene.py.
+    # self.hidden("windows", "windows")
     "windows": (
         "John moves closer to the windows.\n\n"
         "Rainwater crawls down the glass. "
@@ -22,10 +17,18 @@ CLUE_DESCRIPTIONS = {
 }
 
 
-# Short text that appears in JOHN'S NOTEBOOK after discovering the clue.
+# Short notebook text for discovered clues.
 CLUE_NAMES = {
-    # Use the same clue ID as CLUE_DESCRIPTIONS.
     "windows": (
         "One of the office windows was left slightly open."
     ),
 }
+
+
+# The lamp is intentionally NOT listed here.
+#
+# The lamp changes room state:
+#
+#     self.lamp_on = False / True
+#
+# rather than automatically becoming evidence.

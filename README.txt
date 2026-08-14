@@ -33,3 +33,44 @@ so changing the timing there changes every gameplay scene.
 
 The Main Menu still inherits directly from Screen and therefore does not
 use the hold system.
+
+
+SCENE WRITING FORMAT
+--------------------
+Normal gameplay scenes should inherit from:
+
+    InvestigationScene
+
+Write the prose with:
+
+    return self.scene(
+        "The office is dark.\n\n"
+        "Rain presses against the [[windows]].\n\n"
+        "A desk sits beneath the [[lamp]]."
+    )
+
+The [[...]] syntax automatically creates a hidden hold interaction.
+
+Same visible word and interaction ID:
+
+    [[windows]]
+
+Different visible text and internal ID:
+
+    [[hand nail|nail]]
+
+    Player sees:
+        hand nail
+
+    Scene receives:
+        nail
+
+Every tagged word automatically gets the global behavior:
+
+    hold 1.0 sec -> only that word wobbles
+    hold 1.5 sec -> interaction activates
+    release early -> cancel
+
+Everything outside [[...]] stays ordinary static prose.
+
+You should normally NOT need to use Rich Text or self.hidden() manually.

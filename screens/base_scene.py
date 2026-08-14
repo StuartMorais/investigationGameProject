@@ -3,106 +3,222 @@
 # The Main Menu does NOT inherit from this class.
 # Menu buttons therefore continue using normal single-click behavior.
 
+# re is Python's regular-expression module.
+# We use it to find [[interactive tags]] inside normal prose.
+import re
+
 from textual import events
-
-# Timer objects are returned by Textual's set_timer() and set_interval().
 from textual.timer import Timer
-
-# Every playable room ultimately comes from Textual's Screen.
 from textual.screen import Screen
-
-# Static is the widget containing the room prose.
 from textual.widgets import Static
 
-# Shared hold timings and word-wobble helpers.
+# Rich Text lets scene() combine ordinary prose and hidden interactions
+# into one display object.
+from rich.text import Text
+
 from systems.hold_interaction import (
     HOLD_ACTIVATE_TIME,
     HOLD_WOBBLE_TIME,
     INTERACTION_META_KEY,
+    INTERACTION_TOKEN_KEY,
     WORD_WOBBLE_INTERVAL,
     hidden_word,
     wobble_word,
 )
 
 
+# Matches text such as:
+#
+#     [[windows]]
+#     [[floorboard|hidden_key]]
+#
+# It deliberately does not support nested [[tags]].
+SCENE_TAG_PATTERN = re.compile(r"\[\[([^\[\]]+?)\]\]")
+
+
 class InvestigationScene(Screen):
     """
     Base class for every PLAYABLE investigation scene.
 
-    Universal hidden-word behavior:
+    Scene-writing syntax
+    --------------------
 
-        mouse down on hidden word
-                ↓
-        hold for 1.0 second
-                ↓
-        ONLY THAT WORD begins wobbling
-                ↓
-        keep holding until 1.5 seconds
-                ↓
+    Normal text:
+
+        "Rain hits the windows."
+
+    Hidden interaction:
+
+        "Rain hits the [[windows]]."
+
+    Different visible text and internal ID:
+
+        "Something sits beneath the [[floorboard|hidden_key]]."
+
+    Universal behavior
+    ------------------
+
+        mouse down
+             ↓
+        hold 1.0 sec
+             ↓
+        only that word wobbles
+             ↓
+        hold 1.5 sec
+             ↓
         interaction activates
 
-    Release before 1.5 seconds:
-        cancel everything
-
-    The screen, story box, and notebook NEVER move.
+    Release early:
+        cancel
     """
 
     def __init__(self, *args, **kwargs) -> None:
-        # Let Textual initialize the Screen first.
         super().__init__(*args, **kwargs)
 
-        # Common class available to every gameplay scene in styles.tcss.
         self.add_class("gameplay-scene")
 
-        # Interaction ID currently being held.
-        #
-        # Example:
-        # "windows"
-        # "lamp"
-        #
-        # None means no hidden word is being held.
+        # Internal ID of the object currently being held.
         self._held_interaction: str | None = None
 
-        # Timer that waits until the 1-second wobble point.
+        # Unique occurrence token for the exact word currently being held.
+        #
+        # This prevents two copies of the same interaction ID from wobbling
+        # at the same time.
+        self._held_token: str | None = None
+
         self._wobble_start_timer: Timer | None = None
-
-        # Timer that waits until the 1.5-second activation point.
         self._activate_timer: Timer | None = None
-
-        # Repeating timer used only while the held WORD is wobbling.
         self._word_wobble_timer: Timer | None = None
 
-        # Current word-wobble animation frame.
         self._word_wobble_frame = 0
-
-        # True only after the player has held for at least 1 second.
         self._word_wobble_active = False
-
-        # Mouse capture lets us still detect release if the cursor moves
-        # slightly while the player is holding.
         self._mouse_is_captured = False
+
+    def scene(self, prose: str) -> Text:
+        """
+        Convert normal scene writing into Rich Text with hidden interactions.
+
+        This is the method you should normally use inside build_scene().
+
+        Example:
+
+            def build_scene(self):
+                return self.scene(
+                    "The office is dark.\\n\\n"
+                    "Rain presses against the [[windows]].\\n\\n"
+                    "A desk sits beneath the [[lamp]]."
+                )
+
+        Tag formats
+        -----------
+
+        [[windows]]
+
+            Visible text: windows
+            Interaction ID: windows
+
+        [[hand nail|nail]]
+
+            Visible text: hand nail
+            Interaction ID: nail
+
+        Everything outside [[...]] stays completely ordinary static text.
+        """
+
+        result = Text()
+        previous_end = 0
+
+        # Enumerate gives every tag occurrence a stable number.
+        #
+        # If "windows" appears twice, tokens might become:
+        #
+        #     windows:0
+        #     windows:1
+        #
+        # so only the exact held occurrence wobbles.
+        for occurrence, match in enumerate(SCENE_TAG_PATTERN.finditer(prose)):
+            # Add untouched normal prose before this tag.
+            result.append(
+                prose[previous_end:match.start()]
+            )
+
+            tag_contents = match.group(1)
+
+            # [[visible|id]] uses the part after "|" as the internal ID.
+            if "|" in tag_contents:
+                visible_text, interaction_id = tag_contents.split("|", 1)
+            else:
+                # [[windows]] means visible text and ID are the same.
+                visible_text = tag_contents
+                interaction_id = tag_contents
+
+            # Remove accidental spaces around the two pieces.
+            visible_text = visible_text.strip()
+            interaction_id = interaction_id.strip()
+
+            # If someone writes a malformed empty tag, leave it visible
+            # instead of crashing the scene.
+            if not visible_text or not interaction_id:
+                result.append(match.group(0))
+                previous_end = match.end()
+                continue
+
+            # Stable unique token for this exact occurrence.
+            interaction_token = f"{interaction_id}:{occurrence}"
+
+            # Normally the displayed word is unchanged.
+            display_text = visible_text
+
+            # During the 1-second feedback stage, ONLY the exact word/span
+            # the player is holding gets the wobble effect.
+            if (
+                self._word_wobble_active
+                and interaction_token == self._held_token
+            ):
+                display_text = wobble_word(
+                    visible_text,
+                    self._word_wobble_frame,
+                )
+
+            result.append(
+                hidden_word(
+                    visible_text=visible_text,
+                    interaction_id=interaction_id,
+                    interaction_token=interaction_token,
+                    display_text=display_text,
+                )
+            )
+
+            previous_end = match.end()
+
+        # Add the normal prose after the final [[tag]].
+        result.append(
+            prose[previous_end:]
+        )
+
+        return result
 
     def hidden(self, visible_text: str, interaction_id: str):
         """
-        Create a hidden hold-interaction word.
+        Lower-level helper.
 
-        Scene-writing example:
+        You normally do NOT need this anymore.
 
-            self.hidden("windows", "windows")
+        Prefer:
 
-        The first value is what the player sees.
-        The second value is the internal interaction ID.
+            self.scene("Look at the [[window]].")
 
-        This method also decides whether THIS particular word should currently
-        display a wobble frame.
+        This method remains available for unusual scene-building situations.
         """
+
+        # A manually-created hidden word has a deterministic token.
+        interaction_token = f"manual:{interaction_id}:{visible_text}"
 
         display_text = visible_text
 
-        # Only distort the exact word currently being held.
         if (
             self._word_wobble_active
-            and interaction_id == self._held_interaction
+            and interaction_token == self._held_token
         ):
             display_text = wobble_word(
                 visible_text,
@@ -112,22 +228,15 @@ class InvestigationScene(Screen):
         return hidden_word(
             visible_text=visible_text,
             interaction_id=interaction_id,
+            interaction_token=interaction_token,
             display_text=display_text,
         )
 
     def refresh_scene_text(self) -> None:
         """
-        Rebuild only the prose widget.
+        Ask the current scene to rebuild only its prose widget.
 
-        Every gameplay scene using this base class should provide:
-
-            build_scene()
-
-        and should display that scene inside:
-
-            id="scene-text"
-
-        This is used by the word-wobble animation.
+        The word-wobble animation uses this repeatedly.
         """
 
         try:
@@ -148,62 +257,60 @@ class InvestigationScene(Screen):
                 )
 
         except Exception:
-            # Defensive cleanup for moments when a screen is mounting or
-            # unmounting and the widget may temporarily not exist.
+            # Defensive cleanup while screens mount/unmount.
             pass
 
     def on_mouse_down(self, event: events.MouseDown) -> None:
         """
-        Called when the left mouse button is PRESSED.
-
-        We inspect the invisible Rich metadata under the cursor.
+        Start a hold only when the mouse is pressed over hidden metadata.
         """
 
-        # Ignore buttons other than normal left-click.
         if event.button != 1:
             return
 
-        # Hidden words created with self.hidden() contain our metadata ID.
         interaction_id = event.style.meta.get(
             INTERACTION_META_KEY
         )
 
-        # Ordinary text has no hidden interaction metadata.
-        if not interaction_id:
+        interaction_token = event.style.meta.get(
+            INTERACTION_TOKEN_KEY
+        )
+
+        # Ordinary text has neither value.
+        if not interaction_id or not interaction_token:
             return
 
-        # Cancel any previous unfinished hold.
         self.cancel_hold_interaction()
 
-        # Remember which exact object the player is holding.
         self._held_interaction = str(
             interaction_id
         )
 
-        # Capture mouse release even if the cursor shifts slightly.
+        self._held_token = str(
+            interaction_token
+        )
+
+        # Keep receiving mouse-up even if the cursor moves slightly.
         self.capture_mouse()
         self._mouse_is_captured = True
 
-        # At 1.0 second, begin wobbling only the held word.
+        # 1.0 seconds -> wobble only the held word.
         self._wobble_start_timer = self.set_timer(
             HOLD_WOBBLE_TIME,
             self.begin_word_wobble,
         )
 
-        # At 1.5 seconds, activate the interaction.
+        # 1.5 seconds -> activate.
         self._activate_timer = self.set_timer(
             HOLD_ACTIVATE_TIME,
             self.finish_hold_interaction,
         )
 
-        # Do not let other handlers process this mouse-down.
         event.stop()
 
     def on_mouse_up(self, event: events.MouseUp) -> None:
         """
-        Called when the left mouse button is RELEASED.
-
-        If activation has not happened yet, releasing cancels the hold.
+        Releasing before activation cancels the hold.
         """
 
         if event.button != 1:
@@ -217,22 +324,17 @@ class InvestigationScene(Screen):
 
     def begin_word_wobble(self) -> None:
         """
-        Called when the player reaches 1.0 second of holding.
-
-        Only the held word begins changing glyphs.
+        Called after 1.0 second.
         """
 
-        # The player may have released before the timer fired.
         if self._held_interaction is None:
             return
 
         self._word_wobble_active = True
         self._word_wobble_frame = 0
 
-        # Redraw immediately so the player sees feedback right away.
         self.refresh_scene_text()
 
-        # Continue changing the held word until activation/release.
         self._word_wobble_timer = self.set_interval(
             WORD_WOBBLE_INTERVAL,
             self.advance_word_wobble,
@@ -240,7 +342,7 @@ class InvestigationScene(Screen):
 
     def advance_word_wobble(self) -> None:
         """
-        Move to the next visual frame of the currently held word.
+        Advance the held word to its next distortion frame.
         """
 
         if self._held_interaction is None:
@@ -248,15 +350,11 @@ class InvestigationScene(Screen):
             return
 
         self._word_wobble_frame += 1
-
-        # Rebuild the prose.
-        #
-        # self.hidden() changes ONLY the currently held word.
         self.refresh_scene_text()
 
     def stop_word_wobble(self) -> None:
         """
-        Stop the word animation and restore the ordinary spelling.
+        Stop the animation and restore normal spelling.
         """
 
         if self._word_wobble_timer is not None:
@@ -266,78 +364,60 @@ class InvestigationScene(Screen):
         self._word_wobble_active = False
         self._word_wobble_frame = 0
 
-        # Rebuild the prose one last time so the held word returns to normal.
         self.refresh_scene_text()
 
     def finish_hold_interaction(self) -> None:
         """
-        Called after the hidden word has been held for 1.5 seconds.
-
-        This is when the object actually activates.
+        Called at 1.5 seconds.
         """
 
-        # The player may have released early.
         if self._held_interaction is None:
             return
 
-        # Save the ID before cleanup clears it.
         interaction_id = self._held_interaction
 
-        # Stop wobble/timers and return the word to normal first.
+        # Restore normal text before performing the interaction.
         self.cancel_hold_interaction()
 
-        # Let the specific room decide what this ID does.
         self.activate_interaction(
             interaction_id
         )
 
     def cancel_hold_interaction(self) -> None:
         """
-        Cancel the current hold interaction.
-
-        Used when:
-        - the mouse is released early
-        - activation finishes
-        - another hold begins
-        - the player leaves the scene
+        Stop timers, wobble, and mouse capture.
         """
 
-        # Cancel the pending 1-second timer.
         if self._wobble_start_timer is not None:
             self._wobble_start_timer.stop()
             self._wobble_start_timer = None
 
-        # Cancel the pending 1.5-second timer.
         if self._activate_timer is not None:
             self._activate_timer.stop()
             self._activate_timer = None
 
-        # Stop and reset only the held WORD animation.
         if self._word_wobble_active or self._word_wobble_timer is not None:
             self.stop_word_wobble()
 
-        # Forget the current interaction.
         self._held_interaction = None
+        self._held_token = None
 
-        # Return mouse routing to normal.
         if self._mouse_is_captured:
             self.release_mouse()
             self._mouse_is_captured = False
 
-        # Make certain the normal word is displayed after _held_interaction
-        # has been cleared.
+        # Final redraw after clearing the held token.
         self.refresh_scene_text()
 
     def activate_interaction(self, interaction_id: str) -> None:
         """
-        Default behavior for hidden objects.
+        Default hidden-object behavior.
 
-        Most hidden interactions are clues, so by default we call:
+        Most hidden interactions are clues, so by default:
 
             self.inspect(interaction_id)
 
-        A particular scene can override this for switches, lamps, doors,
-        drawers, etc.
+        A room can override this method for lamps, doors, drawers, etc.
         """
 
         inspect_method = getattr(
@@ -353,6 +433,6 @@ class InvestigationScene(Screen):
 
     def on_unmount(self) -> None:
         """
-        Stop any active hold timers when the player leaves the scene.
+        Clean up if the player leaves during a hold.
         """
         self.cancel_hold_interaction()

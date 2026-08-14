@@ -2,9 +2,16 @@
 #
 # This file applies to EVERY normal gameplay scene.
 #
-# IMPORTANT:
-# The screen itself never moves.
-# Only the hidden WORD being held changes appearance after 1 second.
+# Scene authors do NOT need to use Rich/Textual markup directly.
+# They can write:
+#
+#     [[windows]]
+#
+# or:
+#
+#     [[floorboard|hidden_key]]
+#
+# screens/base_scene.py converts those tags into hidden interactive words.
 
 # Rich Style lets us attach invisible metadata to individual words.
 from rich.style import Style
@@ -13,8 +20,9 @@ from rich.style import Style
 from rich.text import Text
 
 
-# Invisible metadata key stored inside every hidden interaction word.
+# Invisible metadata keys stored inside every hidden interaction word.
 INTERACTION_META_KEY = "investigation_interaction"
+INTERACTION_TOKEN_KEY = "investigation_interaction_token"
 
 
 # Hold for 1 second before the word begins wobbling.
@@ -30,18 +38,6 @@ WORD_WOBBLE_INTERVAL = 0.07
 
 
 # Alternate glyphs used to imitate the old "watch" effect.
-#
-# Example:
-#
-#     watch
-#     ᴡatch
-#     wɑtch
-#     waᴛch
-#     watᴄh
-#     watcʜ
-#
-# Not every letter has a perfect small-cap equivalent, so this dictionary
-# contains useful substitutions for common letters.
 WOBBLE_GLYPHS = {
     "a": "ɑ",
     "b": "ʙ",
@@ -71,11 +67,11 @@ WOBBLE_GLYPHS = {
 
 def wobble_word(visible_text: str, frame_index: int) -> str:
     """
-    Return one wobble frame for any hidden word.
+    Return one wobble frame for a hidden word.
 
-    Only ONE character is distorted at a time.
+    Only one character changes at a time.
 
-    For example, "lamp" cycles approximately like:
+    Example:
 
         lamp
         ʟamp
@@ -83,76 +79,67 @@ def wobble_word(visible_text: str, frame_index: int) -> str:
         laᴍp
         lamᴘ
         lamp
-
-    This keeps the word in the same place in the sentence instead of
-    shaking the whole interface.
     """
 
     if not visible_text:
         return visible_text
 
-    # One normal frame at the start and one normal frame at the end.
     cycle_length = len(visible_text) + 2
     frame = frame_index % cycle_length
 
-    # First and last frame are the normal word.
+    # First and last frames show the normal word.
     if frame == 0 or frame == cycle_length - 1:
         return visible_text
 
-    # Convert frame number into a character position.
     character_index = frame - 1
-
     characters = list(visible_text)
     original = characters[character_index]
 
-    # Look up a distorted version of this character.
+    # Use a small-cap / alternate glyph when one exists.
     replacement = WOBBLE_GLYPHS.get(original.lower())
 
-    # If there is no special glyph for this character, use uppercase as a
-    # harmless fallback visual change.
+    # Fallback for letters/symbols without an alternate glyph.
     if replacement is None:
         replacement = original.upper()
 
     characters[character_index] = replacement
-
     return "".join(characters)
 
 
 def hidden_word(
     visible_text: str,
     interaction_id: str,
+    interaction_token: str,
     display_text: str | None = None,
 ) -> Text:
     """
-    Create a hidden interactive word.
+    Create one hidden interactive text span.
 
     visible_text:
-        The normal word written by the scene author.
+        What the player sees.
 
     interaction_id:
-        Internal ID used when the word activates.
+        What the scene receives when the interaction activates.
+
+    interaction_token:
+        Unique ID for THIS occurrence in the prose.
+
+        This matters if the same interaction ID appears more than once.
+        Only the exact word being held should wobble.
 
     display_text:
-        Optional temporary version displayed during the wobble animation.
-
-    The interaction metadata is invisible. No underline, button, or color
-    reveals that the word can be held.
+        Temporary visual version used during the wobble animation.
     """
 
-    # Metadata only: this adds no visible styling.
+    # Metadata does not add color, underline, or any visible clue marker.
     invisible_style = Style.from_meta(
         {
             INTERACTION_META_KEY: interaction_id,
+            INTERACTION_TOKEN_KEY: interaction_token,
         }
     )
 
-    # Normally display visible_text.
-    # During a wobble frame the base scene passes a distorted display_text.
-    text_to_show = (
-        visible_text
-        if display_text is None
-        else display_text
-    )
+    text_to_show = visible_text if display_text is None else display_text
 
     return Text(
         text_to_show,
